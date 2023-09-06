@@ -1,0 +1,13 @@
+# Cache
+## MacOS
+.DS_Store
+
+## Editors
+.idea/
+.vscode/
+
+# Keys & sets
+*.env
+
+# Data
+/data/
