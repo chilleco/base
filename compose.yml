@@ -23,7 +23,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
     volumes:
       - ${DATA_PATH}/mongo:/data/db
-      - ${DATA_PATH}/logs/mongodb.log:/data/logs/mongodb.log
+      - ${DATA_PATH}/logs:/data/logs
       - ./configs/mongod.conf:/etc/mongod.conf
     command: --config /etc/mongod.conf
 
