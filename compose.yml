@@ -12,21 +12,20 @@ services:
       - 9001:9001
     command: server /data --console-address ":9001"
 
-  # mongo:
-  #   image: mongo:6.0
-  #   ports:
-  #     - ${DB_PORT}:27017
-  #   restart: unless-stopped
-  #   env_file: .env
-  #   environment:
-  #     MONGO_INITDB_DATABASE: admin
-  #     MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
-  #     MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
-  #   volumes:
-  #     - ${DATA_PATH}/mongo:/data/db
-  #     - ${DATA_PATH}/logs/mongodb.log:/data/logs/mongodb.log
-  #     - ./configs/mongod.conf:/etc/mongod.conf
-  #   command: --config /etc/mongod.conf
+  mongo:
+    image: mongo:6.0
+    ports:
+      - 27017:27017
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: admin
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
+    volumes:
+      - ${DATA_PATH}/mongo:/data/db
+      - ${DATA_PATH}/logs/mongodb.log:/data/logs/mongodb.log
+      - ./configs/mongod.conf:/etc/mongod.conf
+    command: --config /etc/mongod.conf
 
   # redis:
   #   image: redis:7.0
