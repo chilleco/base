@@ -21,7 +21,7 @@ jobs:
             if [ -d ~/base ];
             then
                 cd ~/base
-                make stop
+                make down
             fi
 
             echo "Removing old version"
@@ -43,4 +43,4 @@ jobs:
 
             echo "Starting new version"
             cd ~/base
-            make run
+            make up
