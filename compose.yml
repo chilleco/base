@@ -2,6 +2,7 @@ version: "3.11"
 x-sentry-env: &sentry_env
   SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-change-me}
   SENTRY_SINGLE_ORGANIZATION: ${SENTRY_SINGLE_ORGANIZATION:-1}
+  SENTRY_RELAY_OPEN_REGISTRATION: ${SENTRY_RELAY_OPEN_REGISTRATION:-true}
   SENTRY_EVENT_RETENTION_DAYS: ${SENTRY_EVENT_RETENTION_DAYS:-30}
   SENTRY_POSTGRES_HOST: sentry-postgres
   SENTRY_DB_NAME: ${SENTRY_DB_NAME:-sentry}
@@ -237,6 +238,24 @@ services:
         condition: service_healthy
       sentry-redis:
         condition: service_healthy
+
+  sentry-relay:
+    image: getsentry/relay:latest
+    container_name: base-sentry-relay
+    restart: unless-stopped
+    volumes:
+      - ./infra/sentry/relay:/work/.relay
+    command: run --config /work/.relay/config.yml
+    ports:
+      - "${SENTRY_RELAY_PORT:-9003}:3000"
+    healthcheck:
+      test: ["CMD", "/bin/relay", "healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      sentry-web:
+        condition: service_started
 
   sentry-worker:
     image: getsentry/sentry:latest

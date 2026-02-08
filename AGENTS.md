@@ -4,7 +4,7 @@
 This repository manages the infrastructure stack for the `chill` ecosystem.
 
 - `compose.yml`: main Docker Compose definition for MinIO, MongoDB, Prometheus, Loki, Alloy, Grafana, and Sentry.
-- `infra/`: service-level configuration (`nginx/`, `mongo/`, `prometheus/`, `loki/`, `alloy/`, `grafana/`).
+- `infra/`: service-level configuration (`nginx/`, `mongo/`, `prometheus/`, `loki/`, `alloy/`, `grafana/`, `sentry/`).
 - `scripts/`: helper scripts (`scripts/main.py`, `scripts/lib/s3.py`).
 - `.github/workflows/deploy.yml`: deploy pipeline for `main`.
 - `.env.example`: template for local environment variables.
@@ -43,4 +43,5 @@ There is no formal automated test suite yet. Validate changes with infrastructur
 - Never commit real secrets; copy `.env.example` to `.env` and keep credentials local.
 - Ensure `DATA_PATH` directories exist and are writable before `make up`.
 - Set strong local values for `SENTRY_SECRET_KEY` and `SENTRY_DB_PASS` before enabling Sentry.
+- Keep `infra/sentry/relay/credentials.json` local-only (generated on host and gitignored).
 - Treat `make set` and TLS changes as production-impacting operations; review host/domain variables first.
