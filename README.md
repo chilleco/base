@@ -4,21 +4,19 @@ A base of file storages and databases to support ecosystem projects
 ## Run
 1. Create `.secrets/base.env` from `.env.example`
 
-2. Create folders `data/s3`, `data/mongo`, `data/redis`, `data/logs`
+2. Create folders `data/s3`, `data/mongo`, `data/prometheus`, `data/loki`, `data/alloy`, `data/grafana`, `data/redis`
 
-3. Create empty files `data/logs/mongodb.log`
-
-4. Change configuration for MongoDB:
+3. Change configuration for MongoDB:
 ```
 sudo sysctl -w vm.max_map_count=262144
 ```
 
-5. Run `make run`
+4. Run `make run`
 
-6. Set up domains `make set`
+5. Set up domains `make set`
 
-7. Set up all subdomains `sudo certbot --nginx`
+6. Set up all subdomains `sudo certbot --nginx`
 
-8. Set up S3 buckets on `https://console.chill.services/`
+7. Set up S3 buckets on `https://console.chill.services/`
 
-9. Connect to MongoDB on `mongo mongo.chill.services -u <user> -p <pass> --authenticationDatabase admin`
+8. Connect to MongoDB on `mongo mongo.chill.services -u <user> -p <pass> --authenticationDatabase admin`

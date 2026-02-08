@@ -1,19 +1,18 @@
 include .env
 
-run:
+up:
 	docker compose -p base up --build -d
 
-stop:
+down:
 	docker compose -p base stop
 
-check:
+status:
 	docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
 
 mongo:
 	docker exec -it `docker ps -a | grep base-mongo | cut -d ' ' -f 1` mongosh -u ${MONGO_USER} -p ${MONGO_PASS}
 
-log:
-	docker compose logs
+# TODO: logs:
 
 set:
 	sudo chmod 0755 ~
