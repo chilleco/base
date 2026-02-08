@@ -1,5 +1,5 @@
 # chill base
-A base of file storages and databases to support ecosystem projects
+A base of file storages and databases to support projects ecosystem
 
 ## Run
 1. Create `.secrets/base.env` from `.env.example`
