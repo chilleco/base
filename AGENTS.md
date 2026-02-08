@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 This repository manages the infrastructure stack for the `chill` ecosystem.
 
-- `compose.yml`: main Docker Compose definition for MinIO, MongoDB, Prometheus, Loki, Alloy, and Grafana.
+- `compose.yml`: main Docker Compose definition for MinIO, MongoDB, Prometheus, Loki, Alloy, Grafana, and Sentry.
 - `infra/`: service-level configuration (`nginx/`, `mongo/`, `prometheus/`, `loki/`, `alloy/`, `grafana/`).
 - `scripts/`: helper scripts (`scripts/main.py`, `scripts/lib/s3.py`).
 - `.github/workflows/deploy.yml`: deploy pipeline for `main`.
@@ -20,7 +20,7 @@ This repository manages the infrastructure stack for the `chill` ecosystem.
 ## Coding Style & Naming Conventions
 - Python: PEP 8 style, 4-space indentation, `snake_case` for functions/variables, short module-level docstrings.
 - YAML/Compose: 2-space indentation, lowercase service names (`base-mongo`, `base-grafana`).
-- Environment variables: uppercase with clear prefixes (`MONGO_*`, `GRAFANA_*`, ...) with entity suffix (`USER` for admin/user login, `PASS` for admin/user password/key, `ID` for account/user/application ID, `TOKEN` for account/user/application secret token, `PORT` for container port exporting, ...).
+- Environment variables: uppercase with clear prefixes (`MONGO_*`, `GRAFANA_*`, `SENTRY_*`, ...) with entity suffix (`USER` for admin/user login, `PASS` for admin/user password/key, `ID` for account/user/application ID, `TOKEN` for account/user/application secret token, `PORT` for container port exporting, ...).
 - Keep config files service-scoped under `infra/<service>/` and avoid cross-service coupling in a single file.
 
 ## Testing Guidelines
@@ -28,7 +28,7 @@ There is no formal automated test suite yet. Validate changes with infrastructur
 
 1. `docker compose -p base config` (sanity-check Compose syntax).
 2. `make up` then `make status` (container health and ports).
-3. Verify affected service endpoints/UI paths (for example, `/grafana/` or `/prometheus/`).
+3. Verify affected service endpoints/UI paths (for example, `/grafana/`, `/prometheus/`, or Sentry on `${SENTRY_PORT}`).
 
 ## Commit & Pull Request Guidelines
 - Follow existing history style: short, imperative commit subjects (for example, `Fix mongodb on`, `Update routes`).
@@ -42,4 +42,5 @@ There is no formal automated test suite yet. Validate changes with infrastructur
 ## Security & Configuration Tips
 - Never commit real secrets; copy `.env.example` to `.env` and keep credentials local.
 - Ensure `DATA_PATH` directories exist and are writable before `make up`.
+- Set strong local values for `SENTRY_SECRET_KEY` and `SENTRY_DB_PASS` before enabling Sentry.
 - Treat `make set` and TLS changes as production-impacting operations; review host/domain variables first.
