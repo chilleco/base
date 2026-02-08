@@ -11,18 +11,17 @@ A base of file storages and databases to support projects ecosystem
 sudo sysctl -w vm.max_map_count=262144
 ```
 
-4. Generate Relay credentials for Sentry ingestion:
-`docker compose -p base run --rm --no-deps -T sentry-relay credentials generate --stdout > infra/sentry/relay/credentials.json`
+4. Run `make up` (it auto-generates `infra/sentry/relay/credentials.json` on first run)
 
-5. Run `make up`
+5. Set up domains `make set`
 
-6. Set up domains `make set`
+6. Set up all subdomains `sudo certbot --nginx`
 
-7. Set up all subdomains `sudo certbot --nginx`
+7. Set up S3 buckets on `https://console.chill.services/`
 
-8. Set up S3 buckets on `https://console.chill.services/`
+8. Connect to MongoDB on `mongo mongo.chill.services -u <user> -p <pass> --authenticationDatabase admin`
 
-9. Connect to MongoDB on `mongo mongo.chill.services -u <user> -p <pass> --authenticationDatabase admin`
-
-10. Create Sentry admin user after stack startup:
+9. Create Sentry admin user after stack startup:
 `docker exec -it base-sentry-web sentry createuser --superuser --email <email>`
+
+10. SMTP is optional for Sentry startup; leave `SENTRY_SMTP_*` empty if you do not need email notifications.

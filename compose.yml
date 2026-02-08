@@ -1,4 +1,3 @@
-version: "3.11"
 x-sentry-env: &sentry_env
   SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:-change-me}
   SENTRY_SINGLE_ORGANIZATION: ${SENTRY_SINGLE_ORGANIZATION:-1}
@@ -245,7 +244,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./infra/sentry/relay:/work/.relay
-    command: run --config /work/.relay/config.yml
+    command: run --config /work/.relay
     ports:
       - "${SENTRY_RELAY_PORT:-9003}:3000"
     healthcheck:

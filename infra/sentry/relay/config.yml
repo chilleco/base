@@ -6,6 +6,3 @@ relay:
 
 logging:
   level: WARN
-
-processing:
-  enabled: false

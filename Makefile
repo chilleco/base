@@ -21,11 +21,15 @@ certs:
 	sudo systemctl restart nginx
 	sudo certbot --nginx
 
+.PHONY: sentry-init
+sentry-init:
+	./scripts/ensure_sentry_relay_credentials.sh
+
 # ============================================================================
 # Lifecycle
 # ============================================================================
 
-up:
+up: sentry-init
 	docker compose -p base up --build -d
 
 down:
