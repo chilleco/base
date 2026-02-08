@@ -99,9 +99,6 @@ services:
       - "--web.external-url=${PROTOCOL}://${EXTERNAL_HOST}/prometheus/"
       - "--web.route-prefix=/"
       - "--web.enable-lifecycle"
-    environment:
-      BOT_METRICS_HOST: ${BOT_METRICS_HOST:-bot}
-      METRICS_PORT: ${METRICS_PORT:-9000}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -174,5 +171,5 @@ services:
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
     depends_on:
-      # - prometheus
+      - prometheus
       - loki

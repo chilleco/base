@@ -17,84 +17,84 @@ allowUiUpdates: true
 # Topic support (message_thread_id):
 #   Hardcoded due to Grafana bug #84296 (same issue as chatid).
 
-contactPoints:
-  - orgId: 1
-    name: telegram-critical
-    receivers:
-      - uid: telegram-critical-receiver
-        type: telegram
-        settings:
-          bottoken: ${TELEGRAM_ALERT_BOT_TOKEN}
-          chatid: '-1003428645182'
-          message_thread_id: '626'
-          parse_mode: HTML
-          disable_web_page_preview: true
-          disable_notification: false
-          message: |
-            {{- if gt (len .Alerts.Firing) 0 }}
-            🚨 <b>CRITICAL</b> {{ .CommonLabels.alertname }}
-            {{ if .CommonAnnotations.summary }}{{ .CommonAnnotations.summary }}{{ end }}
-            <b>Firing:</b> {{ len .Alerts.Firing }}{{ range .Alerts.Firing }}
-            • {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}
-              {{ if .DashboardURL }}<a href="{{ .DashboardURL }}">Dashboard</a>{{ end }} {{ if .PanelURL }}<a href="{{ .PanelURL }}">Panel</a>{{ end }} {{ if .SilenceURL }}<a href="{{ .SilenceURL }}">Silence</a>{{ end }}{{ end }}
-            {{- end }}
-            {{- if gt (len .Alerts.Resolved) 0 }}
-            ✅ <b>RESOLVED</b> {{ .CommonLabels.alertname }}
-            <b>Resolved:</b> {{ len .Alerts.Resolved }}{{ range .Alerts.Resolved }}
-            ✓ {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}{{ end }}
-            {{- end }}
-        disableResolveMessage: false
+# contactPoints:
+#   - orgId: 1
+#     name: telegram-critical
+#     receivers:
+#       - uid: telegram-critical-receiver
+#         type: telegram
+#         settings:
+#           bottoken: ${TELEGRAM_ALERT_BOT_TOKEN}
+#           chatid: '-1003428645182'
+#           message_thread_id: '626'
+#           parse_mode: HTML
+#           disable_web_page_preview: true
+#           disable_notification: false
+#           message: |
+#             {{- if gt (len .Alerts.Firing) 0 }}
+#             🚨 <b>CRITICAL</b> {{ .CommonLabels.alertname }}
+#             {{ if .CommonAnnotations.summary }}{{ .CommonAnnotations.summary }}{{ end }}
+#             <b>Firing:</b> {{ len .Alerts.Firing }}{{ range .Alerts.Firing }}
+#             • {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}
+#               {{ if .DashboardURL }}<a href="{{ .DashboardURL }}">Dashboard</a>{{ end }} {{ if .PanelURL }}<a href="{{ .PanelURL }}">Panel</a>{{ end }} {{ if .SilenceURL }}<a href="{{ .SilenceURL }}">Silence</a>{{ end }}{{ end }}
+#             {{- end }}
+#             {{- if gt (len .Alerts.Resolved) 0 }}
+#             ✅ <b>RESOLVED</b> {{ .CommonLabels.alertname }}
+#             <b>Resolved:</b> {{ len .Alerts.Resolved }}{{ range .Alerts.Resolved }}
+#             ✓ {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}{{ end }}
+#             {{- end }}
+#         disableResolveMessage: false
 
-  - orgId: 1
-    name: telegram-warning
-    receivers:
-      - uid: telegram-warning-receiver
-        type: telegram
-        settings:
-          bottoken: ${TELEGRAM_ALERT_BOT_TOKEN}
-          chatid: '-1003428645182'
-          message_thread_id: '626'
-          parse_mode: HTML
-          disable_web_page_preview: true
-          disable_notification: false
-          message: |
-            {{- if gt (len .Alerts.Firing) 0 }}
-            ⚠️ <b>WARNING</b> {{ .CommonLabels.alertname }}
-            {{ if .CommonAnnotations.summary }}{{ .CommonAnnotations.summary }}{{ end }}
-            <b>Firing:</b> {{ len .Alerts.Firing }}{{ range .Alerts.Firing }}
-            • {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}
-              {{ if .DashboardURL }}<a href="{{ .DashboardURL }}">Dashboard</a>{{ end }} {{ if .PanelURL }}<a href="{{ .PanelURL }}">Panel</a>{{ end }} {{ if .SilenceURL }}<a href="{{ .SilenceURL }}">Silence</a>{{ end }}{{ end }}
-            {{- end }}
-            {{- if gt (len .Alerts.Resolved) 0 }}
-            ✅ <b>RESOLVED</b> {{ .CommonLabels.alertname }}
-            <b>Resolved:</b> {{ len .Alerts.Resolved }}{{ range .Alerts.Resolved }}
-            ✓ {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}{{ end }}
-            {{- end }}
-        disableResolveMessage: false
+#   - orgId: 1
+#     name: telegram-warning
+#     receivers:
+#       - uid: telegram-warning-receiver
+#         type: telegram
+#         settings:
+#           bottoken: ${TELEGRAM_ALERT_BOT_TOKEN}
+#           chatid: '-1003428645182'
+#           message_thread_id: '626'
+#           parse_mode: HTML
+#           disable_web_page_preview: true
+#           disable_notification: false
+#           message: |
+#             {{- if gt (len .Alerts.Firing) 0 }}
+#             ⚠️ <b>WARNING</b> {{ .CommonLabels.alertname }}
+#             {{ if .CommonAnnotations.summary }}{{ .CommonAnnotations.summary }}{{ end }}
+#             <b>Firing:</b> {{ len .Alerts.Firing }}{{ range .Alerts.Firing }}
+#             • {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}
+#               {{ if .DashboardURL }}<a href="{{ .DashboardURL }}">Dashboard</a>{{ end }} {{ if .PanelURL }}<a href="{{ .PanelURL }}">Panel</a>{{ end }} {{ if .SilenceURL }}<a href="{{ .SilenceURL }}">Silence</a>{{ end }}{{ end }}
+#             {{- end }}
+#             {{- if gt (len .Alerts.Resolved) 0 }}
+#             ✅ <b>RESOLVED</b> {{ .CommonLabels.alertname }}
+#             <b>Resolved:</b> {{ len .Alerts.Resolved }}{{ range .Alerts.Resolved }}
+#             ✓ {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}{{ end }}
+#             {{- end }}
+#         disableResolveMessage: false
 
-  - orgId: 1
-    name: telegram-info
-    receivers:
-      - uid: telegram-info-receiver
-        type: telegram
-        settings:
-          bottoken: ${TELEGRAM_ALERT_BOT_TOKEN}
-          chatid: '-1003428645182'
-          message_thread_id: '626'
-          parse_mode: HTML
-          disable_web_page_preview: true
-          disable_notification: true
-          message: |
-            {{- if gt (len .Alerts.Firing) 0 }}
-            ℹ️ <b>INFO</b> {{ .CommonLabels.alertname }}
-            {{ if .CommonAnnotations.summary }}{{ .CommonAnnotations.summary }}{{ end }}
-            <b>Firing:</b> {{ len .Alerts.Firing }}{{ range .Alerts.Firing }}
-            • {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}
-              {{ if .DashboardURL }}<a href="{{ .DashboardURL }}">Dashboard</a>{{ end }} {{ if .PanelURL }}<a href="{{ .PanelURL }}">Panel</a>{{ end }} {{ if .SilenceURL }}<a href="{{ .SilenceURL }}">Silence</a>{{ end }}{{ end }}
-            {{- end }}
-            {{- if gt (len .Alerts.Resolved) 0 }}
-            ✅ <b>RESOLVED</b> {{ .CommonLabels.alertname }}
-            <b>Resolved:</b> {{ len .Alerts.Resolved }}{{ range .Alerts.Resolved }}
-            ✓ {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}{{ end }}
-            {{- end }}
-        disableResolveMessage: false
+#   - orgId: 1
+#     name: telegram-info
+#     receivers:
+#       - uid: telegram-info-receiver
+#         type: telegram
+#         settings:
+#           bottoken: ${TELEGRAM_ALERT_BOT_TOKEN}
+#           chatid: '-1003428645182'
+#           message_thread_id: '626'
+#           parse_mode: HTML
+#           disable_web_page_preview: true
+#           disable_notification: true
+#           message: |
+#             {{- if gt (len .Alerts.Firing) 0 }}
+#             ℹ️ <b>INFO</b> {{ .CommonLabels.alertname }}
+#             {{ if .CommonAnnotations.summary }}{{ .CommonAnnotations.summary }}{{ end }}
+#             <b>Firing:</b> {{ len .Alerts.Firing }}{{ range .Alerts.Firing }}
+#             • {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}
+#               {{ if .DashboardURL }}<a href="{{ .DashboardURL }}">Dashboard</a>{{ end }} {{ if .PanelURL }}<a href="{{ .PanelURL }}">Panel</a>{{ end }} {{ if .SilenceURL }}<a href="{{ .SilenceURL }}">Silence</a>{{ end }}{{ end }}
+#             {{- end }}
+#             {{- if gt (len .Alerts.Resolved) 0 }}
+#             ✅ <b>RESOLVED</b> {{ .CommonLabels.alertname }}
+#             <b>Resolved:</b> {{ len .Alerts.Resolved }}{{ range .Alerts.Resolved }}
+#             ✓ {{ .Labels.alertname }}{{ if .Labels.instance }} <code>{{ .Labels.instance }}</code>{{ end }}{{ end }}
+#             {{- end }}
+#         disableResolveMessage: false

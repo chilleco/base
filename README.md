@@ -2,7 +2,7 @@
 A base of file storages and databases to support ecosystem projects
 
 ## Run
-1. Create `.secrets/base.env` from `base.env`
+1. Create `.secrets/base.env` from `.env.example`
 
 2. Create folders `data/s3`, `data/mongo`, `data/redis`, `data/logs`
 
