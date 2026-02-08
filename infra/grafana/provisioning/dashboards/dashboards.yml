@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: "Agent Dashboards"
+    orgId: 1
+    folder: "Agent"
+    folderUid: "base-agent"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards

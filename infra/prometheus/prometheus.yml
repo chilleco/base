@@ -1,0 +1,76 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: prometheus
+    metrics_path: /prometheus/metrics
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: redis
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  - job_name: node-exporter
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          env: prod
+          name: master
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          env: prod
+          name: master
+
+  # # Application services use DNS SD to discover all Swarm task replicas
+  # # Docker Swarm's tasks.<service> DNS returns A records for each replica IP
+  # - job_name: base-bot
+  #   dns_sd_configs:
+  #     - names:
+  #         - 'tasks.bot'
+  #       type: 'A'
+  #       port: 9000
+  #       refresh_interval: 30s
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: instance
+  #     - target_label: service
+  #       replacement: bot
+
+  # - job_name: base-scheduler
+  #   dns_sd_configs:
+  #     - names:
+  #         - 'tasks.scheduler'
+  #       type: 'A'
+  #       port: 9000
+  #       refresh_interval: 30s
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: instance
+  #     - target_label: service
+  #       replacement: scheduler
+
+  # - job_name: base-web
+  #   metrics_path: /metrics
+  #   dns_sd_configs:
+  #     - names:
+  #         - 'tasks.web'
+  #       type: 'A'
+  #       port: 8081
+  #       refresh_interval: 30s
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: instance
+  #     - target_label: service
+  #       replacement: webapp

@@ -1,0 +1,882 @@
+apiVersion: 1
+
+groups:
+  # ===========================================================================
+  # BOT AVAILABILITY & HEALTH
+  # ===========================================================================
+  - orgId: 1
+    name: Bot Availability
+    folder: Agent Alerts
+    interval: 1m
+    rules:
+      # WARNING: Bot is not receiving any updates for extended period
+      # NOTE: For webhook-based bots, no updates during idle periods is NORMAL.
+      # This alert only fires after 15 minutes of zero activity to catch actual outages.
+      - uid: bot-no-updates
+        title: Bot No Updates
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(bot_updates_total[15m]))
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(increase(bot_updates_total[1h]))
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: C
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [0.001]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: Bot is not receiving Telegram updates
+          description: No updates received in the last 15 minutes. For webhook-based bots, this may be normal during low-traffic periods. Check if this coincides with expected idle time.
+          runbook: Check bot container logs, verify Telegram webhook status, check network connectivity. Consider silencing during known low-traffic periods.
+        labels:
+          severity: warning
+          team: backend
+
+      # CRITICAL: High error rate
+      - uid: bot-high-error-rate
+        title: Bot High Error Rate
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: |
+                (
+                  sum(rate(bot_handler_calls_total{outcome="error"}[5m]))
+                  / sum(rate(bot_handler_calls_total[5m]))
+                )
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.10]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: Bot error rate above 10%
+          description: Handler calls are failing at a critical rate. System may be broken.
+          runbook: Check error logs, identify failing handlers, check external dependencies.
+        labels:
+          severity: critical
+          team: backend
+
+      # WARNING: Elevated error rate
+      - uid: bot-elevated-error-rate
+        title: Bot Elevated Error Rate
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: |
+                (
+                  sum(rate(bot_handler_calls_total{outcome="error"}[5m]))
+                  / sum(rate(bot_handler_calls_total[5m]))
+                )
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.05]
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: Bot error rate above 5%
+          description: Handler calls failing at elevated rate. Investigate before it worsens.
+        labels:
+          severity: warning
+          team: backend
+
+      # WARNING: High latency
+      # NOTE: Threshold raised to 45s to accommodate image generation (up to 30s)
+      # and complex LLM operations. Only alert on truly problematic latency.
+      - uid: bot-high-latency
+        title: Bot High Latency
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.95, sum(rate(bot_handler_duration_seconds_bucket[5m])) by (le))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [45]
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: Bot handler latency p95 above 45 seconds
+          description: Users are experiencing very slow responses. Normal image generation takes up to 30s, so this indicates a significant problem. Check LLM provider health, database performance, and network issues.
+        labels:
+          severity: warning
+          team: backend
+
+  # ===========================================================================
+  # LLM SERVICE HEALTH
+  # ===========================================================================
+  - orgId: 1
+    name: LLM Service
+    folder: Agent Alerts
+    interval: 1m
+    rules:
+      # CRITICAL: All LLM providers down
+      - uid: llm-all-providers-down
+        title: LLM All Providers Down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: count(llm_circuit_breaker_state == 1) == count(llm_circuit_breaker_state) and count(llm_circuit_breaker_state) > 0
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: All LLM provider circuit breakers are OPEN
+          description: No LLM providers available. AI features are completely broken.
+          runbook: Check provider status pages, API key validity, network connectivity.
+        labels:
+          severity: critical
+          team: backend
+
+      # CRITICAL: API key unhealthy
+      - uid: llm-api-key-unhealthy
+        title: LLM API Key Unhealthy
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: llm_api_key_health == 0
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: LLM API key is unhealthy
+          description: API key marked unhealthy. Check for quota exhaustion or invalid key.
+          runbook: Verify API key in provider console, check billing/quota.
+        labels:
+          severity: critical
+          team: backend
+
+      # WARNING: Circuit breaker open
+      - uid: llm-circuit-breaker-open
+        title: LLM Circuit Breaker Open
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: llm_circuit_breaker_state == 1
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: LLM circuit breaker OPEN
+          description: Provider circuit is open. Fallback providers in use.
+          runbook: Check provider status, review error logs, wait for automatic recovery.
+        labels:
+          severity: warning
+          team: backend
+
+      # WARNING: High LLM error rate
+      - uid: llm-high-error-rate
+        title: LLM High Error Rate
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: |
+                (
+                  sum(rate(llm_requests_total{outcome=~"error|timeout"}[5m]))
+                  / sum(rate(llm_requests_total[5m]))
+                )
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.10]
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: LLM error rate above 10%
+          description: LLM requests are failing or timing out at elevated rate.
+        labels:
+          severity: warning
+          team: backend
+
+      # WARNING: Rate limiting
+      - uid: llm-rate-limiting
+        title: LLM Rate Limiting
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(llm_rate_limits_total[5m]))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: LLM rate limiting detected
+          description: Rate limits are being hit. Consider adding API keys.
+          runbook: Check provider quotas, consider key rotation or adding API keys.
+        labels:
+          severity: warning
+          team: backend
+
+      # WARNING: High LLM latency
+      # NOTE: Threshold set to 45s to accommodate image generation (up to 30s)
+      # and give headroom for provider variability.
+      - uid: llm-high-latency
+        title: LLM High Latency
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket[5m])) by (le))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [45]
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: LLM request latency p95 above 45 seconds
+          description: Provider may be severely overloaded. Normal image generation takes up to 30s, so this indicates significant degradation.
+        labels:
+          severity: warning
+          team: backend
+
+      # INFO: Frequent fallbacks
+      - uid: llm-frequent-fallbacks
+        title: LLM Frequent Fallbacks
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(llm_provider_fallbacks_total[10m]))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.1]
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: Frequent LLM provider fallbacks
+          description: Primary provider frequently failing, causing fallbacks.
+        labels:
+          severity: info
+          team: backend
+
+  # ===========================================================================
+  # PAYMENT PROCESSING
+  # ===========================================================================
+  - orgId: 1
+    name: Payments
+    folder: Agent Alerts
+    interval: 1m
+    rules:
+      # CRITICAL: Payment processing failing
+      - uid: payment-processing-failing
+        title: Payment Processing Failing
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(bot_payment_errors_total{transient="false"}[5m]))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: Non-transient payment errors detected
+          description: Payment processing has persistent failures. Revenue is at risk.
+          runbook: Check YooKassa integration, verify API credentials, review payment logs.
+        labels:
+          severity: critical
+          team: backend
+
+      # WARNING: Transient payment errors
+      - uid: payment-transient-errors
+        title: Payment Transient Errors
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(bot_payment_errors_total{transient="true"}[10m]))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.05]
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: Elevated transient payment errors
+          description: Payment retries occurring frequently. YooKassa may have issues.
+        labels:
+          severity: warning
+          team: backend
+
+  # ===========================================================================
+  # SCHEDULER JOBS
+  # ===========================================================================
+  - orgId: 1
+    name: Scheduler
+    folder: Agent Alerts
+    interval: 1m
+    rules:
+      # CRITICAL: Critical scheduler job failing
+      - uid: scheduler-critical-job-failing
+        title: Scheduler Critical Job Failing
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum by (job) (rate(bot_scheduler_job_errors_total{job=~"process_pending_payments|process_auto_renewals|retry_failed_payments"}[5m]))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: Critical scheduler job is failing
+          description: Payment/renewal processing job failing. Immediate attention required.
+          runbook: Check scheduler logs, verify database connectivity.
+        labels:
+          severity: critical
+          team: backend
+
+      # WARNING: Any scheduler job failing
+      - uid: scheduler-job-failing
+        title: Scheduler Job Failing
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum by (job) (rate(bot_scheduler_job_errors_total[10m]))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: Scheduler job is failing
+          description: Background job experiencing errors.
+        labels:
+          severity: warning
+          team: backend
+
+      # WARNING: Scheduler job slow
+      - uid: scheduler-job-slow
+        title: Scheduler Job Slow
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.95, sum by (job, le) (rate(bot_scheduler_job_duration_seconds_bucket[15m])))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [120]
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: Scheduler job running slow
+          description: Job p95 duration above 2 minutes. May cause overlapping runs.
+        labels:
+          severity: warning
+          team: backend
+
+  # ===========================================================================
+  # INFRASTRUCTURE
+  # ===========================================================================
+  - orgId: 1
+    name: Infrastructure
+    folder: Agent Alerts
+    interval: 1m
+    rules:
+      # CRITICAL: Database down
+      - uid: database-down
+        title: Database Down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: pg_up
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        noDataState: Alerting
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: PostgreSQL is down
+          description: Cannot connect to PostgreSQL database.
+        labels:
+          severity: critical
+          team: infrastructure
+
+      # CRITICAL: Redis down
+      - uid: redis-down
+        title: Redis Down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: redis_up
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        noDataState: Alerting
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Redis is down
+          description: Cannot connect to Redis. FSM state and caching affected.
+        labels:
+          severity: critical
+          team: infrastructure
+
+  # ===========================================================================
+  # TELEGRAM API
+  # ===========================================================================
+  - orgId: 1
+    name: Telegram API
+    folder: Agent Alerts
+    interval: 1m
+    rules:
+      # WARNING: Telegram API errors
+      - uid: telegram-api-errors
+        title: Telegram API Errors
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(bot_telegram_api_errors_total{reason!~"blocked|deactivated|not_found"}[5m]))
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.1]
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: Telegram API errors detected
+          description: Telegram API returning errors. Check for API changes or rate limiting.
+        labels:
+          severity: warning
+          team: backend
+
+      # INFO: High user churn
+      - uid: high-user-churn
+        title: High User Churn
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(bot_user_errors_total{error_type="user_blocked_bot"}[1h])) * 3600
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [5]
+        noDataState: OK
+        execErrState: Error
+        for: 1h
+        annotations:
+          summary: Elevated user churn - users blocking bot
+          description: Multiple users per hour blocking the bot. Review recent changes or messaging frequency.
+        labels:
+          severity: info
+          team: product

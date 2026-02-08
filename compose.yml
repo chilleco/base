@@ -1,7 +1,8 @@
 version: "3.11"
 services:
-  minio:
+  s3:
     image: minio/minio:latest
+    container_name: base-s3
     volumes:
       - ${DATA_PATH}/s3:/data
     environment:
@@ -14,6 +15,7 @@ services:
 
   mongo:
     image: mongo:6.0
+    container_name: base-mongo
     ports:
       - 27017:27017
     restart: unless-stopped
@@ -38,53 +40,139 @@ services:
   #     - ${REDIS_PORT}:6379
   #   command: bash -c "redis-server --requirepass ${REDIS_PASS}"
 
-  # node_exporter:
-  #   image: quay.io/prometheus/node-exporter:v1.5.0
-  #   restart: unless-stopped
-  #   volumes:
-  #     - /:/host:ro,rslave
-  #   command:
-  #     - --path.rootfs=/host
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:v1.10.2
+    container_name: base-node_exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - ./infra/prometheus/textfile:/textfile
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.cpufreq"
+      - "--collector.textfile.directory=/textfile"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|rootfs)($$|/)"
 
-  # cadvisor:
-  #   image: gcr.io/cadvisor/cadvisor:v0.47.1  # NOTE: google/cadvisor exit 255
-  #   restart: unless-stopped
-  #   volumes:
-  #     - /:/rootfs:ro
-  #     - /var/run:/var/run:rw
-  #     - /sys:/sys:ro
-  #     - /var/lib/docker/:/var/lib/docker:ro
-  #     - /dev/disk/:/dev/disk:ro
-  #   command:
-  #     - '--housekeeping_interval=5s'
-  #     - '--docker_only=true'
+  node-exporter-textfile:
+    image: busybox:1.37.0
+    container_name: base-node-exporter-textfile
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - ./infra/prometheus/textfile:/textfile
+    command: >
+      sh -c 'while true; do
+      hz=$$(awk -F": " "/MHz/ {sum+=\$$2; cnt++} END {if (cnt>0) printf \"%.0f\", (sum/cnt)*1000000; else print 0}" /host/proc/cpuinfo);
+      printf "cpu_frequency_hz %s\n" "$$hz" > /textfile/cpu_frequency.prom;
+      sleep 15;
+      done'
 
-  # prometheus:
-  #   image: prom/prometheus:v2.43.0
-  #   ports:
-  #     - ${PROMETHEUS_PORT}:9090
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ./configs/prometheus.yml:/prometheus.yml
-  #     - ${DATA_PATH}/prometheus:/prometheus
-  #   command:
-  #     - --config.file=/prometheus.yml
-  #     - --web.external-url=${PROTOCOL}://${EXTERNAL_HOST}/prometheus/
-  #     - --web.route-prefix=/
-  #   depends_on:
-  #     - api
-  #     - node_exporter
-  #     - cadvisor
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: base-cadvisor
+    restart: unless-stopped
+    privileged: true
+    pid: "host"
+    volumes:
+      - /:/rootfs:ro
+      - /sys:/sys:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
-  # grafana:
-  #   image: grafana/grafana:9.4.7
-  #   ports:
-  #     - ${GRAFANA_PORT}:3000
-  #   restart: unless-stopped
-  #   environment:
-  #     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS}
-  #     - GF_SERVER_ROOT_URL=${PROTOCOL}://${EXTERNAL_HOST}/grafana/
-  #   volumes:
-  #     - ${DATA_PATH}/grafana:/var/lib/grafana
-  #   depends_on:
-  #     - prometheus
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: base-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
+      - ${DATA_PATH}/prometheus:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.external-url=${PROTOCOL}://${EXTERNAL_HOST}/prometheus/"
+      - "--web.route-prefix=/"
+      - "--web.enable-lifecycle"
+    environment:
+      BOT_METRICS_HOST: ${BOT_METRICS_HOST:-bot}
+      METRICS_PORT: ${METRICS_PORT:-9000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      - node_exporter
+      - cadvisor
+      # - postgres-exporter
+      # - redis-exporter
+
+  # ==========================================================================
+  # LOKI - Log Aggregation
+  # ==========================================================================
+  loki:
+    image: grafana/loki:3.6.4
+    container_name: base-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./infra/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - ${DATA_PATH}/loki:/loki
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    # NOTE: Loki 3.x distroless image has no shell or http tools for healthcheck
+    healthcheck:
+      disable: true
+
+  # ==========================================================================
+  # ALLOY - Unified Log Collector (replaces Promtail)
+  # ==========================================================================
+  alloy:
+    image: grafana/alloy:v1.12.2
+    container_name: base-alloy
+    restart: unless-stopped
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --stability.level=generally-available
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./infra/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ${DATA_PATH}/alloy:/var/lib/alloy/data
+    ports:
+      - "${ALLOY_PORT:-12345}:12345"
+    depends_on:
+      loki:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:12.3.1
+    container_name: base-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASS:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "${PROTOCOL}://${EXTERNAL_HOST}/grafana/"
+      # GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # # Alerting - Telegram notifications (webhook to thread/topic)
+      # GF_UNIFIED_ALERTING_ENABLED: "true"
+      # TELEGRAM_ALERT_BOT_TOKEN: ${TELEGRAM_ALERT_BOT_TOKEN:-}
+      # TELEGRAM_ALERT_CHAT_ID: ${TELEGRAM_ALERT_CHAT_ID:-}
+      # TELEGRAM_ALERT_THREAD_ID: ${TELEGRAM_ALERT_THREAD_ID:-0}
+    volumes:
+      - ${DATA_PATH}/grafana:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/etc/grafana/dashboards:ro
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      # - prometheus
+      - loki

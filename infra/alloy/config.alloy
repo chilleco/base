@@ -1,0 +1,178 @@
+// Grafana Alloy Configuration
+// Optimized for low-cardinality labels and high performance
+//
+// LABEL STRATEGY:
+// - Labels (indexed): Only static, low-cardinality values for stream selection
+// - Structured metadata: High-cardinality searchable fields (user_id, correlation_id)
+// - Log line: Everything else (queryable via LogQL parsers)
+
+// =============================================================================
+// DOCKER CONTAINER DISCOVERY
+// =============================================================================
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "15s"
+}
+
+// Relabel to extract ONLY low-cardinality labels
+// Avoid: container_id, container name (changes on restart), image tags
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // // FILTER: Only keep containers from <name> project (compose or swarm)
+  //   regex  = ".*<name>.*"
+  // This prevents errors from containers with incompatible logging drivers
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_project",
+      "__meta_docker_container_label_com_docker_stack_namespace",
+    ]
+    action = "keep"
+  }
+
+  // Docker Compose/Swarm service name - STABLE, LOW CARDINALITY
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+
+  // Docker Swarm service name (production)
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_swarm_service_name"]
+    target_label  = "swarm_service"
+  }
+
+  // Docker Swarm stack namespace
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_stack_namespace"]
+    target_label  = "stack"
+  }
+
+  // Drop high-cardinality Docker metadata we don't need as labels
+  // container_id, container name, image - NOT promoted to labels
+}
+
+// =============================================================================
+// LOG COLLECTION
+// =============================================================================
+
+loki.source.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.containers.output  // Use filtered output, not raw discovery
+  forward_to       = [loki.process.pipeline.receiver]
+  refresh_interval = "15s"
+}
+
+// =============================================================================
+// LOG PROCESSING PIPELINE
+// =============================================================================
+
+loki.process "pipeline" {
+  // Stage 1: Parse Docker JSON wrapper
+  stage.docker {}
+
+  // Stage 2: Extract ONLY fields we need for:
+  //   - Labels (low cardinality): level, service, environment
+  //   - Filtering/dropping: event
+  //   - Structured metadata: user_id, correlation_id, job_name, handler
+  stage.json {
+    expressions = {
+      // For labels (low cardinality)
+      level       = "level",
+      service     = "service",
+      environment = "environment",
+
+      // For filtering
+      event       = "event",
+      logger_name = "logger_name",
+
+      // For structured metadata (high cardinality but searchable)
+      user_id        = "user_id",
+      correlation_id = "correlation_id",
+      job_name       = "job_name",
+      handler        = "handler",
+    }
+  }
+
+  // Stage 3: Set LOW-CARDINALITY labels only
+  // These create streams - keep minimal!
+  stage.labels {
+    values = {
+      level       = "",   // ~5 values: debug, info, warning, error, critical
+      service     = "",   // ~5 values: bot, scheduler, webapp, worker
+      environment = "",   // ~3 values: local, staging, production
+    }
+  }
+
+  // Stage 4: Add static cluster label
+  stage.static_labels {
+    values = {
+      cluster = "base-agent",
+    }
+  }
+
+  // Stage 5: Store high-cardinality fields as STRUCTURED METADATA
+  // These are indexed separately, don't create new streams
+  // Queryable via: {cluster="base-agent"} | user_id="12345"
+  stage.structured_metadata {
+    values = {
+      user_id        = "",
+      correlation_id = "",
+      job_name       = "",
+      handler        = "",
+    }
+  }
+
+  // Stage 6: Drop noisy logs before sending to Loki
+  stage.drop {
+    source     = "event"
+    expression = "health.?check|readiness.?probe|liveness.?probe"
+    drop_counter_reason = "health_check"
+  }
+
+  // Drop noisy third-party library logs
+  stage.drop {
+    source     = "logger_name"
+    expression = "httpcore|hpack|httpx._client"
+    drop_counter_reason = "noisy_library"
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// =============================================================================
+// LOKI WRITE ENDPOINT
+// =============================================================================
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+
+    // Batch settings - balance between latency and efficiency
+    batch_wait = "1s"
+    batch_size = "1MiB"
+
+    // Retry with backoff
+    min_backoff_period = "500ms"
+    max_backoff_period = "5m"
+    max_backoff_retries = 10
+  }
+
+  external_labels = {}
+}
+
+// =============================================================================
+// ALLOY SELF-MONITORING
+// =============================================================================
+
+logging {
+  level  = "warn"
+  format = "logfmt"
+}
+
+// Disable live debugging in production (saves resources)
+// Enable temporarily for troubleshooting: alloy run --stability.level=experimental
+livedebugging {
+  enabled = false
+}
