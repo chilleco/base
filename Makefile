@@ -10,8 +10,8 @@ set:
 	sudo chmod -R a+w ~/data/
 	sudo chmod 0700 ~/.ssh
 	sudo chmod -R 0600 ~/.ssh/*
-	export EXTERNAL_HOST=${EXTERNAL_HOST} DATA_PATH=${DATA_PATH} PROMETHEUS_PORT=${PROMETHEUS_PORT} GRAFANA_PORT=${GRAFANA_PORT} SENTRY_PORT=${SENTRY_PORT}; \
-	envsubst '$${EXTERNAL_HOST} $${DATA_PATH} $${PROMETHEUS_PORT} $${GRAFANA_PORT} $${SENTRY_PORT}' < infra/nginx/prod.conf > /etc/nginx/sites-enabled/base.conf
+	export EXTERNAL_HOST=${EXTERNAL_HOST} DATA_PATH=${DATA_PATH} PROMETHEUS_PORT=${PROMETHEUS_PORT} GRAFANA_PORT=${GRAFANA_PORT} SENTRY_PORT=${SENTRY_PORT} SENTRY_RELAY_PORT=${SENTRY_RELAY_PORT}; \
+	envsubst '$${EXTERNAL_HOST} $${DATA_PATH} $${PROMETHEUS_PORT} $${GRAFANA_PORT} $${SENTRY_PORT} $${SENTRY_RELAY_PORT}' < infra/nginx/prod.conf > /etc/nginx/sites-enabled/base.conf
 	sudo systemctl restart nginx
 	sudo certbot --nginx
 
@@ -21,11 +21,15 @@ certs:
 	sudo systemctl restart nginx
 	sudo certbot --nginx
 
+.PHONY: sentry-init
+sentry-init:
+	./scripts/ensure_sentry_relay_credentials.sh
+
 # ============================================================================
 # Lifecycle
 # ============================================================================
 
-up:
+up: sentry-init
 	docker compose -p base up --build -d
 
 down:

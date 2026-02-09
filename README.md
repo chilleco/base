@@ -11,7 +11,7 @@ A base of file storages and databases to support projects ecosystem
 sudo sysctl -w vm.max_map_count=262144
 ```
 
-4. Run `make run`
+4. Run `make up` (it auto-generates `infra/sentry/relay/credentials.json` on first run)
 
 5. Set up domains `make set`
 
@@ -23,3 +23,5 @@ sudo sysctl -w vm.max_map_count=262144
 
 9. Create Sentry admin user after stack startup:
 `docker exec -it base-sentry-web sentry createuser --superuser --email <email>`
+
+10. SMTP is optional for Sentry startup; leave `SENTRY_SMTP_*` empty if you do not need email notifications.
