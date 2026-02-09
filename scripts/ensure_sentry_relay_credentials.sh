@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# chmod +x /root/base/scripts/ensure_sentry_relay_credentials.sh
 
 set -euo pipefail
 

@@ -23,6 +23,7 @@ certs:
 
 .PHONY: sentry-init
 sentry-init:
+	sudo chmod +x /root/base/scripts/ensure_sentry_relay_credentials.sh
 	./scripts/ensure_sentry_relay_credentials.sh
 
 # ============================================================================
