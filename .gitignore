@@ -14,3 +14,6 @@ env/
 
 # Data
 /data/
+
+# Relay credentials (generated locally)
+infra/sentry/relay/credentials.json
