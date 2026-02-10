@@ -30,7 +30,7 @@ sentry-init:
 # Lifecycle
 # ============================================================================
 
-up: sentry-init
+up: # sentry-init
 	docker compose -p base up --build -d
 
 down:
